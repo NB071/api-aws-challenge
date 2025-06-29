@@ -247,17 +247,16 @@ $0.01 CAD
 * **Setting up the development environment and choosing a scalable structure**: Initially, organizing the project for scalability and clean deployment was challenging. After evaluating options, I adopted AWS SAM for its native integration with Lambda, API Gateway, and ease of local development. This required extensive documentation reading but resulted in a robust and production-ready setup.
 
 * **Multipart/Form-Data Parsing in Lambda**: AWS Lambda doesn’t natively parse multipart/form-data and given library retriction of this challenge, I decided to write a custom parser using byte-level splitting logic. This ensured:
-  
   * File uploads worked reliably with various clients
   * MIME types could be validated manually (e.g., fallback to imghdr when contentType is missing)
 
 * **SSM Parameter Store Lookup**: Table and bucket names were dynamically fetched and cached from AWS SSM to keep environment configuration flexible and efficient. Errors here were safely wrapped and logged.
 
 * **Chunk Balancing Logic/Idea**: Preventing overfilled or underutilized chunks required logic to:
-
   * Prefer filling chunks under a soft threshold
   * Dynamically create new chunks when no eligible one existed
   * Prepare for future features like `/delete` without degrading performance
+  * Reducing scanning time from `O(n)` -> `O(k)` where *k* is the number of undefilled chunks (i.e. `chunkVolume < chnukThreshold`) by preserving a `activeChunk` field with proper logic and managemment.
 
 ---
 
