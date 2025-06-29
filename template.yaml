@@ -1,0 +1,60 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  petAPI SAM Template
+
+Globals:
+  Api:
+    BinaryMediaTypes:
+      - "*/*"
+  Function:
+    Timeout: 3
+    Runtime: python3.12
+    Architectures:
+      - x86_64
+    Environment:
+      Variables:
+        fb_S3BucketName: <YOUR_BUCKET_NAME>
+        fb_chunkInfoTableName: <YOUR_CHUNK_INFO_TABLE>
+        fb_chunkImageTableName: <YOUR_CHUNK_IMAGE_TABLE>
+
+Resources:
+  PetApiPostUploadImage:
+    Type: AWS::Serverless::Function 
+    Properties:
+      CodeUri: upload/
+      Handler: app.lambda_handler
+      Role: arn:aws:iam::<ACCOUNT_ID>:role/<UPLOAD_FUNCTION_ROLE>
+      Events:
+        UploadImgEvt:
+          Type: Api 
+          Properties:
+            Path: /upload
+            Method: POST
+  
+  PetApiGetRandomImage:
+    Type: AWS::Serverless::Function 
+    Properties:
+      CodeUri: random/
+      Handler: app.lambda_handler
+      Role: arn:aws:iam::<ACCOUNT_ID>:role/<RANDOM_FUNCTION_ROLE>
+      Events:
+        GetRandomImgEvt:
+          Type: Api 
+          Properties:
+            Path: /random
+            Method: GET
+
+Outputs:
+  UploadImageApiEndpoint:
+    Description: "API Gateway endpoint URL for upload function"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/upload"
+  GetImageApiEndpoint:
+    Description: "API Gateway endpoint URL for get image function"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/random"
+  UploadImageFunctionArn:
+    Description: "Upload Image LF ARN"
+    Value: !GetAtt PetApiPostUploadImage.Arn
+  GetImageFunctionArn:
+    Description: "Get Random Image LF ARN"
+    Value: !GetAtt PetApiGetRandomImage.Arn

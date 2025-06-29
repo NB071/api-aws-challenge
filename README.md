@@ -1,1 +1,295 @@
-# api-aws-challenge
+# 🐾 petAPI - Weighted Random Image Service
+I want to start by expressing my gratitude to *Jitto* for giving me the chance to work on this technical challenge. The process of creating this application has been full of interesting discoveries as well as difficulties. It forced me to dive deeper into AWS services, optimize for scale, and make deliberate architectural choices while dealing with practical limitations.
+
+---
+
+## 🚀 Overview
+This application allows users to upload images (e.g., of pets) along with labels and weights, and later retrieve a randomly selected image, along with selection probability **weighted by user-defined values**. It simulates a simplified content recommendation or image rotation service.
+
+
+## ☁️ AWS Services Used
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="https://icon.icepanel.io/AWS/svg/Security-Identity-Compliance/Identity-and-Access-Management.svg" width="64"/><br/>
+      <strong>IAM</strong>
+    </td>
+    <td align="center">
+      <img src="https://icon.icepanel.io/AWS/svg/Compute/Lambda.svg" width="64"/><br/>
+      <strong>Lambda</strong>
+    </td>
+    <td align="center">
+      <img src="https://icon.icepanel.io/AWS/svg/Storage/Simple-Storage-Service.svg" width="64"/><br/>
+      <strong>S3</strong>
+    </td>
+    <td align="center">
+      <img src="https://icon.icepanel.io/AWS/svg/App-Integration/API-Gateway.svg" width="64"/><br/>
+      <strong>API Gateway</strong>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="https://icon.icepanel.io/AWS/svg/Management-Governance/Systems-Manager.svg" width="64"/><br/>
+      <strong>SSM</strong>
+    </td>
+    <td align="center">
+      <img src="https://icon.icepanel.io/AWS/svg/Database/DynamoDB.svg" width="64"/><br/>
+      <strong>DynamoDB</strong>
+    </td>
+    <td align="center">
+      <img src="https://icon.icepanel.io/AWS/svg/Management-Governance/CloudWatch.svg" width="64"/><br/>
+      <strong>CloudWatch</strong>
+    </td>
+    <td align="center">
+      <img src="https://icon.icepanel.io/AWS/svg/Management-Governance/CloudFormation.svg" width="64"/><br/>
+      <strong>CloudFormation</strong>
+    </td>
+  </tr>
+</table>
+
+---
+
+## 🛠 Local Development & Deployment with AWS SAM
+
+This project uses the **AWS Serverless Application Model (SAM)** for local development, testing, and deployment.
+
+### 🔄 Local Testing
+
+```bash
+sudo sam build && sam local start-api
+```
+Starts a local API Gateway at `http://127.0.0.1:3000` to invoke your Lambda functions locally.
+
+### 🚀 Deploy to AWS
+```bash
+sudo sam build && sam deploy
+```
+Builds and deploys the application to AWS. Make sure your AWS credentials are configured (`aws configure`) beforehand.
+
+### 🧩 IAM Role Configuration
+
+Each Lambda function directory should contain an IAM policy file named: `IAM__policy.json`
+You must modify `template.yaml` to reference the appropriate IAM role for each Lambda function by either:
+
+- Attaching the role directly via the Role property
+- Or using Policies: to inline attach `IAM__policy.json`
+
+`NOTE:` For security and privacy reasons, the `template.yaml` file has been anonymized. If you require access to the original version for review or deployment purposes, feel free to reach out to me directly.
+
+### 📦 S3 & DynamoDB Setup
+
+Make sure the following AWS resources exist before deploying the stack:
+
+- **AWS SSM Parameter Store for Config Management**
+  * Environment-dependent values such as the S3 bucket name and DynamoDB table names are stored in AWS Systems Manager Parameter Store under following paths:
+    * `/pet-api/production/s3/upload-bucket-name`
+    * `/pet-api/production/dynamoDB/chunk-info-table-name`
+    * `/pet-api/production/dynamoDB/image-chunks-table-name`
+- **S3 Bucket *(for image uploads/retrival)***
+  * for starter, 2 directories for each category (cat/dog)
+  * Set in environment variable: `fb_S3BucketName`
+
+- **DynamoDB Tables**
+  * `chunkInfoTable` — stores chunk metadata per label
+    * PartitionKey = `label` 
+    * Fields = {`label`:str, `activeChunks`:List, `chunkMax`:Number, `chunkNumber`:Number, `chunkThreshold`:Number, `chunkVolume`:List}
+  * `imageChunksTable`
+    * PartitionKey = `label` | sortKey = `s3key`
+    * Fields = {`label`:str, `s3key`:str, `chunkNumber`:Number, `weight`:Number}
+    * Must include a `GSI`: **LabelChunkIndex**(partition key: `label`, sort key: `chunkNumber`)
+  * Set fallback tables via environment variables :
+    * `fb_chunkInfoTableName`
+    * `fb_chunkImageTableName`
+
+---
+
+## API Endpoints
+
+### 📤 Upload Image
+
+**POST**  
+`https://blf1qj5mpl.execute-api.ca-central-1.amazonaws.com/Prod/upload`
+
+- Accepts: `multipart/form-data`
+- Fields:
+  - `label`: (`cat` | `dog`) – required
+  - `img`: image file (.jpg, .png, or .webp) – required
+  - `weight`: integer, 0 < *weight* < 1 *(optional, default = 0.5)*
+
+#### Example CURL command:
+```bash
+curl -X POST https://blf1qj5mpl.execute-api.ca-central-1.amazonaws.com/Prod/upload \
+  -F "label=cat" \
+  -F "img=@/path/to/your/image.jpg" \
+  -F "weight=0.54321"
+```
+
+
+### 🎲 Get Random Image
+
+**GET**  
+`https://blf1qj5mpl.execute-api.ca-central-1.amazonaws.com/Prod/random?label={label}`
+
+- Query Params:
+  - `label`: (`cat` | `dog`) – required
+- Response:
+  - Base64-encoded image
+  - Headers include correct MIME type (`Content-Type: image/jpeg` etc.)
+
+#### Example CURL command:
+```bash
+curl "https://blf1qj5mpl.execute-api.ca-central-1.amazonaws.com/Prod/random?label=cat"
+```
+
+---
+
+## 🧠 Design Highlights & Interesting Choices
+* **Chunk-Based Image Management**: Images are grouped into *chunks per label*. Each chunk tracks the number of entries. This will help to:
+  
+  * Minimize read volume per request
+  * Balance chunk sizes for efficient querying
+  * Easily manage deletions in future versions (chunk threshold enforcement)
+  * Less burden on actual algorithm responsible for sampling, bounding it to a constant/finite to complexity O(1)
+
+* **Weighted Random Selection**: Instead of retrieving all images per label, the system will:
+
+  * Randomly selects a chunk
+  * Performs weighted random selection on only that chunk
+This greatly reduces *read costs and improves latency*.
+
+* **Optimized Lambda + S3 + DynamoDB Workflow**:
+  * Upload requests go through API Gateway → Lambda → S3 & *DynamoDB*
+  * Retrieval uses S3 for objects and DynamoDB for metadata, chunk tracking, and weights
+  * Optimized SSM/ParameterStore access by **caching parameters** at runtime to reduce cold-start latency and avoid redundant network calls.
+
+* **Error Handling & Logging**: 
+  * Decorators wrap all Lambda handlers with unified **try/except** logic (previously integrated into my `gexEx` project)
+  * No raw stack traces are exposed to clients — logs are routed to CloudWatch for internal review
+
+* **Security & Access Control**: 
+  * **Rate Limiting**: Added throttling using API Gateway settings to limit abuse or accidental spikes.
+  * **IAM Roles with *Least Privilege***: Lambda functions are scoped to only access the necessary actions and resources (e.g., dynamodb:GetItem, s3:PutObject, ssm:GetParameter).
+  * **No Stack Trace Exposure**: All exceptions are sanitized before reaching the client. Logs are stored securely in CloudWatch for internal debugging.
+  * **MIME Type Filtering**: Only valid image MIME types (.jpg, .png, .webp) are accepted. Fallback type validation is done via content sniffing.
+  * **Safe Defaults**: Responses default to application/json, and binary data responses are safely base64 encoded.
+
+---
+
+# 💸 Approx. Cost Analysis
+According to AWS specifications, an approximate costs-by-scale is as following:
+
+### 🌱 **Low Scale** *(~1K requests/month)*
+
+- **Lambda Function (LF)**:  
+  - 1K × 0.128 GB × 0.2s = **25.6 GB-s**  
+  - Duration cost: 25.6 × $0.00001667 = **$0.00043**, plus invocation cost ~$0.0002 → **$0.00**
+
+- **API Gateway (HTTP API)**:  
+  - 1K × $1.00 / 1M = **$0.001**
+
+- **DynamoDB (On-Demand)**:  
+  - 1K reads + 1K writes = 2K ops  
+  - 2K × $1.25 / 1M = **$0.0025** 
+
+- **S3 Storage & Requests**:  
+  - Storage (5MB total): 0.005 GB × $0.023 = **$0.000115** 
+  - 2K GET/PUT: 2K × ($0.0004 + $0.005)/1K ≈ **$0.01** 
+$0.01 CAD
+
+
+**Total: ~$0.01/month <--> ~$0.01 CAD**
+
+### 🚀 **Medium Scale** *(~100K requests/month)*
+
+- **Lambda Function (LF)**:  
+  - 100K × 0.0256 GB-s = 2,560 GB-s  
+  - 2,560 × $0.00001667 = **$0.043**, plus invocations $0.02 → **$0.063**
+
+- **API Gateway (HTTP API)**:  
+  - 100K × $1.00 / 1M = **$0.10** 
+
+- **DynamoDB**:  
+  - 100K reads + 100K writes = 200K ops  
+  - 200K × $1.25 / 1M = **$0.25**
+
+- **S3 Storage & Requests**:  
+  - 500MB storage: 0.5 × $0.023 = **$0.012**  
+  - 200K GET/PUT ≈ **$1.08**
+
+**Total: ~$1.40/month <--> ~$1.90 CAD**
+
+### 🏗 **High Scale** *(~1M requests/month)*
+
+- **Lambda Function (LF)**:  
+  - 1M × 0.0256 GB-s = 25,600 GB-s  
+  - 25,600 × $0.00001667 = **$0.43**, plus invocations $0.20 → **$0.63**
+
+- **API Gateway (HTTP API)**:  
+  - 1M × $1.00 / 1M = **$1.00**
+
+- **DynamoDB**:  
+  - 1M reads + 1M writes = 2M ops  
+  - 2M × $1.25 / 1M = **$2.50**
+
+- **S3 Storage & Requests**:  
+  - 5 GB storage: 5 × $0.023 = **$0.115**  
+  - 2M GET/PUT ≈ **$10.80**
+
+**Total: ~$15/month <--> ~$20.40 CAD**
+
+
+`Note`: Costs depend on image sizes, chunk density, and weight distribution (which affects read volume). *S3 Intelligent-Tiering* could potentially further reduce cost at high scale.
+
+--- 
+
+# 🧩 Primary Technical Challenges & Solutions
+* **Setting up the development environment and choosing a scalable structure**: Initially, organizing the project for scalability and clean deployment was challenging. After evaluating options, I adopted AWS SAM for its native integration with Lambda, API Gateway, and ease of local development. This required extensive documentation reading but resulted in a robust and production-ready setup.
+
+* **Multipart/Form-Data Parsing in Lambda**: AWS Lambda doesn’t natively parse multipart/form-data and given library retriction of this challenge, I decided to write a custom parser using byte-level splitting logic. This ensured:
+  
+  * File uploads worked reliably with various clients
+  * MIME types could be validated manually (e.g., fallback to imghdr when contentType is missing)
+
+* **SSM Parameter Store Lookup**: Table and bucket names were dynamically fetched and cached from AWS SSM to keep environment configuration flexible and efficient. Errors here were safely wrapped and logged.
+
+* **Chunk Balancing Logic/Idea**: Preventing overfilled or underutilized chunks required logic to:
+
+  * Prefer filling chunks under a soft threshold
+  * Dynamically create new chunks when no eligible one existed
+  * Prepare for future features like `/delete` without degrading performance
+
+---
+
+# 📌 Next Steps
+* Add `/delete` endpoint to remove images and rebalance chunks
+* Elavate security and performance by choocing latest version of python and *external libraries*
+* potential cases where external libraries would benefit the application:
+  * Compress/Resize image sizes to lower image sizes (e.g. `Pillow`)
+  * More robust body parser and request validator to improve security (e.g. `marshmallow` or `cerberus`)
+  * Improved MIME Type Detection instead of outdated `imghdr` library (e.g. `python-magic`)
+  * AWS SSM parameter store reads were cached using a custom strategy, however, external caching tools like `functools` or `Redis` (via ElastiCache) could increase flexibility and performance at scale.
+* ***JWT-based* authentication** for private buckets or user-bound uploads
+
+---
+
+# Resourses I Used 
+
+Below is a *sample list of resources* I used during the development of this application. AWS docs were always the first to visit.
+
+- https://www.youtube.com/watch?v=ETphJASzYes&ab_channel=TheCodingTrainv
+- https://docs.aws.amazon.com/lambda/latest/dg/services-apigateway-tutorial.html
+- https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-parameter-store.html
+- https://codestax.medium.com/aws-parameter-store-b523cb190e0c
+- https://beabetterdev.com/2023/01/07/an-introduction-to-aws-parameter-store/
+- https://docs.aws.amazon.com/lambda/latest/dg/python-handler.html#python-handler-best-practices
+- https://dev.to/dvddpl/dynamodb-dynamic-method-to-insert-or-edit-an-item-5fnh
+- https://github.com/aws/serverless-application-model/blob/master/docs/globals.rst
+- https://github.com/aws/serverless-application-model/blob/master/versions/2016-10-31.md#api
+- https://www.youtube.com/watch?v=mhdX4znMd2Q&ab_channel=JonathanDavies
+- https://en.wikipedia.org/wiki/List_of_file_signatures
+- https://sceweb.sce.uhcl.edu/abeysekera/itec3831/labs/FILE%20SIGNATURES%20TABLE.pdf
+- https://developers.google.com/speed/webp/docs/riff_container#webp_file_header
+- https://docs.python.org/3.12/library/imghdr.html
+- https://github.com/myshenin/aws-lambda-multipart-parser/tree/master
+- https://docs.aws.amazon.com/lambda/latest/dg/python-logging.html
