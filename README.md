@@ -168,7 +168,7 @@ This greatly reduces *read costs and improves latency*.
   * No raw stack traces are exposed to clients — logs are routed to CloudWatch for internal review
 
 * **Security & Access Control**: 
-  * **Rate Limiting**: Added throttling using API Gateway settings to limit abuse or accidental spikes.
+  * **Rate Limiting**: Added throttling using API Gateway settings to limit abuse or accidental spikes (Rate=*20*; Burst=*10*)
   * **IAM Roles with *Least Privilege***: Lambda functions are scoped to only access the necessary actions and resources (e.g., dynamodb:GetItem, s3:PutObject, ssm:GetParameter).
   * **No Stack Trace Exposure**: All exceptions are sanitized before reaching the client. Logs are stored securely in CloudWatch for internal debugging.
   * **MIME Type Filtering**: Only valid image MIME types (.jpg, .png, .webp) are accepted. Fallback type validation is done via content sniffing.
@@ -258,6 +258,40 @@ $0.01 CAD
   * Prefer filling chunks under a soft threshold
   * Dynamically create new chunks when no eligible one existed
   * Prepare for future features like `/delete` without degrading performance
+
+---
+
+# ⚡ Typical Response Time
+
+During development, I experimented with three architectural iterations, each with measurable impact on response latency:
+
+### 📦 **1. Initial Approach: S3 + DynamoDB (No Chunking)**
+- **Warm Start**: ~500–800 ms  
+- **Cold Start**: ~1100–2000 ms  
+- **Details**:  
+  - All image objects stored in S3  
+  - All metadata stored in a single flat DynamoDB table  
+  - No chunking led to large scan volumes and growing latency at scale
+
+---
+
+### 🧩 **2. S3-Only with Chunking**
+- **Warm Start**: ~500–900 ms  
+- **Cold Start**: ~1500–2000 ms  
+- **Details**:  
+  - Chunking introduced to reduce read volume  
+  - However, metadata and weights were moved to S3, increasing S3 I/O overhead  
+  - Slower cold starts due to full file reads and lack of metadata indexing
+
+---
+
+### ⚖️ **3. Final Approach: S3 + DynamoDB with Chunking**
+- **Warm Start**: ~300–500 ms  
+- **Cold Start**: ~1100–1500 ms  
+- **Details**:  
+  - S3 retained for image storage  
+  - Chunking logic + weight metadata stored in DynamoDB (2 tables --> Separation of Concerns)
+  - Balanced cost-efficiency and latency, leveraging indexed queries and targeted data access/modification (`update_item` instead of `put_item` in dynamoDB)
 
 ---
 
