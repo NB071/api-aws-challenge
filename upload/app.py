@@ -67,7 +67,4 @@ def lambda_handler(evt: Dict[str, Any], _ctx: Any) -> Dict[str, Any]:
                 "error": "Failure to upload the image, please try again."
             })
 
-    return {
-        "statusCode": HTTP.OK,
-        "body": json.dumps({"message": "Image uploaded successfully"})
-    }
+    return responder(HTTP.OK, {"message": "Image uploaded successfully"})
