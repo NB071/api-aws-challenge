@@ -177,69 +177,7 @@ This greatly reduces *read costs and improves latency*.
 ---
 
 # 💸 Approx. Cost Analysis
-According to AWS specifications, an approximate costs-by-scale is as following:
-
-### 🌱 **Low Scale** *(~1K requests/month)*
-
-- **Lambda Function (LF)**:  
-  - 1K × 0.128 GB × 0.2s = **25.6 GB-s**  
-  - Duration cost: 25.6 × $0.00001667 = **$0.00043**, plus invocation cost ~$0.0002 → **$0.00**
-
-- **API Gateway (HTTP API)**:  
-  - 1K × $1.00 / 1M = **$0.001**
-
-- **DynamoDB (On-Demand)**:  
-  - 1K reads + 1K writes = 2K ops  
-  - 2K × $1.25 / 1M = **$0.0025** 
-
-- **S3 Storage & Requests**:  
-  - Storage (5MB total): 0.005 GB × $0.023 = **$0.000115** 
-  - 2K GET/PUT: 2K × ($0.0004 + $0.005)/1K ≈ **$0.01** 
-$0.01 CAD
-
-
-**Total: ~$0.01/month <--> ~$0.01 CAD**
-
-### 🚀 **Medium Scale** *(~100K requests/month)*
-
-- **Lambda Function (LF)**:  
-  - 100K × 0.0256 GB-s = 2,560 GB-s  
-  - 2,560 × $0.00001667 = **$0.043**, plus invocations $0.02 → **$0.063**
-
-- **API Gateway (HTTP API)**:  
-  - 100K × $1.00 / 1M = **$0.10** 
-
-- **DynamoDB**:  
-  - 100K reads + 100K writes = 200K ops  
-  - 200K × $1.25 / 1M = **$0.25**
-
-- **S3 Storage & Requests**:  
-  - 500MB storage: 0.5 × $0.023 = **$0.012**  
-  - 200K GET/PUT ≈ **$1.08**
-
-**Total: ~$1.40/month <--> ~$1.90 CAD**
-
-### 🏗 **High Scale** *(~1M requests/month)*
-
-- **Lambda Function (LF)**:  
-  - 1M × 0.0256 GB-s = 25,600 GB-s  
-  - 25,600 × $0.00001667 = **$0.43**, plus invocations $0.20 → **$0.63**
-
-- **API Gateway (HTTP API)**:  
-  - 1M × $1.00 / 1M = **$1.00**
-
-- **DynamoDB**:  
-  - 1M reads + 1M writes = 2M ops  
-  - 2M × $1.25 / 1M = **$2.50**
-
-- **S3 Storage & Requests**:  
-  - 5 GB storage: 5 × $0.023 = **$0.115**  
-  - 2M GET/PUT ≈ **$10.80**
-
-**Total: ~$15/month <--> ~$20.40 CAD**
-
-
-`Note`: Costs depend on image sizes, chunk density, and weight distribution (which affects read volume). *S3 Intelligent-Tiering* could potentially further reduce cost at high scale.
+According to AWS specifications, an approximate costs-by-scale is placed under costs directory located in this repository
 
 --- 
 
@@ -310,12 +248,15 @@ During development, I experimented with three architectural iterations, each wit
 
 Below is a *sample list of resources* I used during the development of this application. AWS docs were always the first to visit.
 
+- https://boto3.amazonaws.com/v1/documentation/api/latest/guide/dynamodb.html *(API ref)*
+- https://boto3.amazonaws.com/v1/documentation/api/latest/guide/s3-examples.html *(API ref)*
+- https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm.html *(API ref)*
+- https://docs.aws.amazon.com/lambda/latest/dg/services-apigateway-tutorial.html *(API ref)*
+- https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-parameter-store.html *(API ref)*
+- https://docs.aws.amazon.com/lambda/latest/dg/python-handler.html#python-handler-best-practices *(API ref)*
 - https://www.youtube.com/watch?v=ETphJASzYes&ab_channel=TheCodingTrainv
-- https://docs.aws.amazon.com/lambda/latest/dg/services-apigateway-tutorial.html
-- https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-parameter-store.html
 - https://codestax.medium.com/aws-parameter-store-b523cb190e0c
 - https://beabetterdev.com/2023/01/07/an-introduction-to-aws-parameter-store/
-- https://docs.aws.amazon.com/lambda/latest/dg/python-handler.html#python-handler-best-practices
 - https://dev.to/dvddpl/dynamodb-dynamic-method-to-insert-or-edit-an-item-5fnh
 - https://github.com/aws/serverless-application-model/blob/master/docs/globals.rst
 - https://github.com/aws/serverless-application-model/blob/master/versions/2016-10-31.md#api
@@ -324,5 +265,5 @@ Below is a *sample list of resources* I used during the development of this appl
 - https://sceweb.sce.uhcl.edu/abeysekera/itec3831/labs/FILE%20SIGNATURES%20TABLE.pdf
 - https://developers.google.com/speed/webp/docs/riff_container#webp_file_header
 - https://docs.python.org/3.12/library/imghdr.html
-- https://github.com/myshenin/aws-lambda-multipart-parser/tree/master
+- https://github.com/myshenin/aws-lambda-multipart-parser/tree/master *(inspiration)*
 - https://docs.aws.amazon.com/lambda/latest/dg/python-logging.html
