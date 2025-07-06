@@ -177,7 +177,38 @@ This greatly reduces *read costs and improves latency*.
 ---
 
 # 💸 Approx. Cost Analysis
-According to AWS specifications, an approximate costs-by-scale is placed under costs directory located in this repository
+This section provides an approximate breakdown of monthly AWS costs by request scale, based on official AWS pricing.  
+Detailed cost estimations for each tier are available under the [`/costs`](./costs) directory in this repository.
+
+---
+
+## 📊 Tier Breakdown
+
+### 🌱 Low Tier
+- **Requests**: ~1,000/month  
+  - 🟢 `700` GET requests  
+  - 🟠 `300` POST requests  
+- **Images stored**: ~`500`
+
+---
+
+### 🌿 Mid Tier
+- **Requests**: ~10,000/month  
+  - 🟢 `7,000` GET requests  
+  - 🟠 `3,000` POST requests  
+- **Images stored**: ~`5,000`
+
+---
+
+### 🚀 High Tier
+- **Requests**: ~1,000,000/month  
+  - 🟢 `700,000` GET requests  
+  - 🟠 `300,000` POST requests  
+- **Images stored**: ~`100,000`
+
+---
+
+> 📁 *For a full breakdown of Lambda, API Gateway, S3, and DynamoDB pricing per tier, refer to the individual files in the [`/costs`](./costs) folder.*
 
 --- 
 
