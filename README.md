@@ -106,10 +106,12 @@ Make sure the following AWS resources exist before deploying the stack:
 
 ## API Endpoints
 
+**As of right now, the api is not on production.**
+
 ### 📤 Upload Image
 
 **POST**  
-`https://blf1qj5mpl.execute-api.ca-central-1.amazonaws.com/Prod/upload`
+`URL not available`
 
 - Accepts: `multipart/form-data`
 - Fields:
@@ -119,7 +121,7 @@ Make sure the following AWS resources exist before deploying the stack:
 
 #### Example CURL command:
 ```bash
-curl -X POST https://blf1qj5mpl.execute-api.ca-central-1.amazonaws.com/Prod/upload \
+curl -X POST https://xyz/upload \
   -F "label=cat" \
   -F "img=@/path/to/your/image.jpg" \
   -F "weight=0.54321"
@@ -129,7 +131,7 @@ curl -X POST https://blf1qj5mpl.execute-api.ca-central-1.amazonaws.com/Prod/uplo
 ### 🎲 Get Random Image
 
 **GET**  
-`https://blf1qj5mpl.execute-api.ca-central-1.amazonaws.com/Prod/random?label={label}`
+`URL not available`
 
 - Query Params:
   - `label`: (`cat` | `dog`) – required
@@ -139,7 +141,7 @@ curl -X POST https://blf1qj5mpl.execute-api.ca-central-1.amazonaws.com/Prod/uplo
 
 #### Example CURL command:
 ```bash
-curl "https://blf1qj5mpl.execute-api.ca-central-1.amazonaws.com/Prod/random?label=cat"
+curl "https://xyz/random?label=cat"
 ```
 
 ---
